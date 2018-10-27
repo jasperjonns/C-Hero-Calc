@@ -249,6 +249,9 @@ std::map<std::string, int> stringToEnum = {
     {"HATE", HATE},
     {"EXPLODE_L", EXPLODE_L},
     {"DODGE", DODGE},
+	{"DEATHSTRIKE", DEATHSTRIKE},
+	{"LEECH", LEECH},
+	{"EVOLVE", EVOLVE},
 
     {"EARTH", EARTH},
     {"AIR", AIR},
@@ -595,6 +598,10 @@ void initBaseHeroes() {
     baseHeroes.push_back(Monster( 114,126, "ahattori",          WATER, ASCENDED,  {BUFF_L,        WATER, WATER, 0.1819f}));
 
     baseHeroes.push_back(Monster(WORLDBOSS_HEALTH, 110, "doyenne", WATER, WORLDBOSS, {DODGE,      ALL, ALL, 5000}));
+	
+	baseHeroes.push_back(Monster( 30, 40, "billy",              EARTH,	COMMON,    {DEATHSTRIKE,  ALL, EARTH, 100}));
+    baseHeroes.push_back(Monster( 88, 22, "sanqueen",           WATER,	RARE,      {LEECH,        SELF, WATER, 1}));
+    baseHeroes.push_back(Monster( 150, 60, "cliodhna",          AIR,	LEGENDARY, {EVOLVE,       SELF, AIR, 1}));
 }
 
 void initIndices() {
@@ -641,6 +648,7 @@ void initHeroAliases() {
     heroAliases["poker"] = "pokerface";
     heroAliases["akirk"] = "alordkirk";
     heroAliases["anep"] = "aneptunius";
+	heroAliases["clio"] = "cliodhna";
 
     heroAliases["loc"] = "lordofchaos";
     heroAliases["fboss"] = "lordofchaos";

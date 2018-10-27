@@ -233,8 +233,8 @@ inline void ArmyCondition::getDamage(const int turncounter, const ArmyCondition 
                         break;
 		case LEECH:		turnData.leech = skillAmounts[monstersLost];
                         break;
-        case EVOLVE:	evolveTotal += opposingDamage * skillAmounts[monstersLost];
-						turnData.buffDamage += evolveTotal;
+        case EVOLVE:	turnData.buffDamage += evolveTotal;
+						evolveTotal += opposingDamage * skillAmounts[monstersLost];
                         break;
         default:        break;
 

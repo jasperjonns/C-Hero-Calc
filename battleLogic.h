@@ -31,7 +31,6 @@ struct TurnData {
     double critMult = 1;
     double hate = 0;
     double leech = 0;
-	double purity = 0;
     bool immunity5K = false ;
 };
 
@@ -56,6 +55,7 @@ class ArmyCondition {
 
         int64_t seed;
 
+        int berserkProcs; // for berserk ability
         double evolveTotal; //for evolve ability
 
         int monstersLost;
@@ -84,6 +84,7 @@ inline void ArmyCondition::init(const Army & army, const int oldMonstersLost, co
     seed = army.seed;
     armySize = army.monsterAmount;
     monstersLost = oldMonstersLost;
+    berserkProcs = 0;
     evolveTotal = 0;
 
     dice = -1;
@@ -171,7 +172,7 @@ inline void ArmyCondition::startNewTurn() {
 // Handle all self-centered abilities and other multipliers on damage
 // Protection needs to be calculated at this point.
 inline void ArmyCondition::getDamage(const int turncounter, const ArmyCondition & opposingCondition) {
-    turnData.baseDamage = damageStat[monstersLost]; // Get Base damage
+    turnData.baseDamage = lineup[monstersLost]->damage; // Get Base damage
 
     const Element opposingElement = opposingCondition.lineup[opposingCondition.monstersLost]->element;
     const int opposingProtection = opposingCondition.turnData.protection;
@@ -203,13 +204,15 @@ inline void ArmyCondition::getDamage(const int turncounter, const ArmyCondition 
                                 friendsDamage += skillAmounts[i];
                         }
                         break;
+        case TRAINING:  turnData.buffDamage += (int) (skillAmounts[monstersLost] * (double) turncounter);
+                        break;
         case RAINBOW:   if (rainbowConditions[monstersLost]) {
                             turnData.buffDamage += (int) skillAmounts[monstersLost];
                         } break;
         case ADAPT:     if (opposingElement == skillTargets[monstersLost]) {
-                            turnData.purity *= skillAmounts[monstersLost];
+                            turnData.multiplier *= skillAmounts[monstersLost];
                         } break;
-        case BERSERK:   turnData.multiplier = skillAmounts[monstersLost];
+        case BERSERK:   turnData.multiplier *= (double) pow(skillAmounts[monstersLost], berserkProcs); berserkProcs++;
                         break;
         case PIERCE:    turnData.paoeDamage = (int) ((double) lineup[monstersLost]->damage * skillAmounts[monstersLost]);
                         break;
@@ -220,6 +223,8 @@ inline void ArmyCondition::getDamage(const int turncounter, const ArmyCondition 
         case COUNTER:   turnData.counter = skillAmounts[monstersLost];
                         break;
         case EXPLODE:   turnData.explodeDamage = skillAmounts[monstersLost]; // Explode damage gets added here, but still won't apply unless enemy frontliner dies
+                        break;
+        case DICE:      turnData.baseDamage += opposingCondition.seed % (int)(skillAmounts[monstersLost] + 1); // Only adds dice attack effect if dice is in front, max health is done before battle
                         break;
         // Pick a target, Bubbles currently dampens lux damage if not targeting first according to game code, interaction should be added if this doesn't change
         case LUX:       turnData.target = getTurnSeed(opposingCondition.seed, turncounter) % (opposingCondition.armySize - opposingCondition.monstersLost);
@@ -232,7 +237,7 @@ inline void ArmyCondition::getDamage(const int turncounter, const ArmyCondition 
                         break;
         case EVOLVE:    turnData.baseDamage += evolveTotal;
                 		damageStat[monstersLost] = turnData.baseDamage;
-                        evolveTotal = opposingDamage * skillAmounts[monstersLost];
+                        evolveTotal += opposingDamage * skillAmounts[monstersLost];
                         break;
         default:        break;
 
@@ -240,10 +245,9 @@ inline void ArmyCondition::getDamage(const int turncounter, const ArmyCondition 
     turnData.valkyrieDamage = turnData.baseDamage;
     if (friendsDamage == 0) {
         if (turnData.multiplier > 1) {
-			damageStat[monstersLost] *= turnData.multiplier;
+            turnData.valkyrieDamage *= turnData.multiplier;
+			damageStat[monstersLost] = turnData.valkyrieDamage;
         }
-		if (turnData.purity)
-			turnData.valkyrieDamage *= turnData.purity;
         if (turnData.buffDamage != 0) {
             turnData.valkyrieDamage += turnData.buffDamage;
         }
@@ -328,6 +332,7 @@ inline void ArmyCondition::resolveDamage(TurnData & opposing) {
         if (remainingHealths[i] <= 0 && !worldboss) {
             if (i == monstersLost) {
                 monstersLost++;
+                berserkProcs = 0;
                 evolveTotal = 0;
             }
             skillTypes[i] = NOTHING; // disable dead hero's ability
@@ -368,6 +373,7 @@ inline bool simulateFight(Army & left, Army & right, bool verbose = false) {
         }
 
         rightCondition.remainingHealths[rightCondition.monstersLost] = left.lastFightData.frontHealth;
+        rightCondition.berserkProcs        = left.lastFightData.berserk;
         turncounter                        = left.lastFightData.turncounter;
     } else {
         // Load Army data into conditions
@@ -387,7 +393,7 @@ inline bool simulateFight(Army & left, Army & right, bool verbose = false) {
             rightCondition.maxHealths[rightCondition.dice] += leftCondition.seed % ((int)rightCondition.skillAmounts[rightCondition.dice] + 1);
             rightCondition.remainingHealths[rightCondition.dice] = rightCondition.maxHealths[rightCondition.dice];
 			rightCondition.damageStat[rightCondition.dice] += leftCondition.seed % (int)(rightCondition.skillAmounts[rightCondition.dice] + 1);
-        }
+		}
 
         // Apply Leprechaun's skill (Beer)
         if (leftCondition.booze && leftCondition.armySize < rightCondition.armySize)
@@ -493,6 +499,7 @@ inline bool simulateFight(Army & left, Army & right, bool verbose = false) {
 
     if (leftCondition.monstersLost >= leftCondition.armySize) { //draws count as right wins.
         left.lastFightData.monstersLost = rightCondition.monstersLost;
+        left.lastFightData.berserk = rightCondition.berserkProcs;
         if (rightCondition.monstersLost < rightCondition.armySize) {
             left.lastFightData.frontHealth = (int64_t) (rightCondition.remainingHealths[rightCondition.monstersLost]);
         } else {
@@ -502,6 +509,7 @@ inline bool simulateFight(Army & left, Army & right, bool verbose = false) {
     } else {
         left.lastFightData.monstersLost = leftCondition.monstersLost;
         left.lastFightData.frontHealth = (int64_t) (leftCondition.remainingHealths[leftCondition.monstersLost]);
+        left.lastFightData.berserk = leftCondition.berserkProcs;
         return true;
     }
 }
